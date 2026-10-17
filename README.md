@@ -52,7 +52,7 @@ Real sheets don't follow a template. The reader handles:
 
 Thresholds, machines, capacities and shifts live in a small JSON file — see [`plant_config.example.json`](plant_config.example.json). Without a config the tool still consolidates; it just can't do the capacity and missing-entry checks.
 
-## Decisions I made, and why
+## Design decisions, and why
 
 - **Never silently turn bad data into a number.** `approx 750` could be read as 750, but if the summary is wrong the owner stops trusting it. Flag it, exclude it, and point to the cell.
 - **Impossible figures stay out of totals.** In the sample data, one `11900` instead of `1190` would turn a 93% day into 250%. Errors are shown in the Issues tab; totals only use figures that make sense.
@@ -85,7 +85,7 @@ sample_data/generate.py   messy sample sheets
 tests/                    unit + end-to-end tests
 ```
 
-## What I'd do next with a real plant
+## Next steps with a real plant
 
 - Sit with the supervisors and collect their actual sheets — the alias list will grow on day one.
 - Ask the owner which numbers they look at first; the summary should open with those.
@@ -94,4 +94,4 @@ tests/                    unit + end-to-end tests
 
 ## How this was built
 
-Built with Claude (Anthropic) as an AI coding agent. I defined the problem and the behaviour for the exceptions (what counts as an error, what is left out of totals, how revisions win), reviewed the code, and tested it against the planted-mistake sample data.
+Built with Claude (Anthropic) as an AI coding agent. The behaviour for each exception is written down above and covered by tests, so it can be reviewed and changed.
