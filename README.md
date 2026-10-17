@@ -92,6 +92,4 @@ tests/                    unit + end-to-end tests
 - Watch a folder (or a WhatsApp export) and send the summary at 9 AM automatically.
 - Track who fixes which issue, so recurring mistakes show up per sheet / per supervisor.
 
-## How this was built
 
-Built with Claude (Anthropic) as an AI coding agent. The behaviour for each exception is written down above and covered by tests, so it can be reviewed and changed.
