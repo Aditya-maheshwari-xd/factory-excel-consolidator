@@ -1,0 +1,17 @@
+{
+  "plant_name": "Shree Balaji Auto Components (fictional)",
+  "shifts": ["A", "B"],
+  "machines": {
+    "M01": {"name": "Press 1 (100T)", "capacity_per_shift": 1500},
+    "M02": {"name": "Press 2 (100T)", "capacity_per_shift": 1500},
+    "M03": {"name": "Press 3 (60T)", "capacity_per_shift": 1000},
+    "M04": {"name": "CNC Lathe 1", "capacity_per_shift": 500},
+    "M05": {"name": "CNC Lathe 2", "capacity_per_shift": 500},
+    "M06": {"name": "VMC 1", "capacity_per_shift": 700}
+  },
+  "thresholds": {
+    "min_target_achievement": 0.85,
+    "max_rejection_rate": 0.05,
+    "max_downtime_min": 60
+  }
+}
