@@ -19,6 +19,8 @@ Wrote reports/production_summary.html
 
 The Excel report has five tabs: **Daily Summary**, **By Shift**, **By Machine**, **Issues To Fix** (colour-coded, each pointing to file / sheet / row) and **All Entries (Clean)**. The HTML page shows the same thing for a phone.
 
+**[See the sample report live](https://aditya-maheshwari-xd.github.io/factory-excel-consolidator/sample_report.html)**, built from the messy sheets in `sample_data/`.
+
 ## What it copes with
 
 Real sheets don't follow a template. The reader handles:
