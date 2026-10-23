@@ -13,5 +13,6 @@
     "min_target_achievement": 0.85,
     "max_rejection_rate": 0.05,
     "max_downtime_min": 60
-  }
+  },
+  "dispatch": {"tolerance_pct": 0, "pod_days": 7}
 }

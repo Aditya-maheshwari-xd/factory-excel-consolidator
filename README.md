@@ -1,23 +1,23 @@
 # Factory Excel Consolidator
 
-Every morning, a plant manager opens a pile of Excel sheets — one per supervisor, sometimes one per shift — adds them up by hand, and squints for mistakes. Each supervisor keeps their sheet a little differently, the same file gets forwarded twice on WhatsApp, and a single extra zero can make yesterday look like a record day.
+Every morning, a plant manager opens a pile of Excel sheets — one per supervisor, sometimes one per shift, plus the store's stock register and the dispatch register — adds them up by hand, and squints for mistakes. Each person keeps their sheet a little differently, the same file gets forwarded twice on WhatsApp, and a single extra zero can make yesterday look like a record day.
 
-This tool takes a folder of those sheets **as they actually are** and produces one summary the owner can trust, plus a list of exactly which cell in which file needs fixing.
+This tool takes a folder of those sheets **as they actually are**, works out which sheet is production, stock or dispatch from its column names, and produces one summary the owner can trust, plus a list of exactly which cell in which file needs fixing. It also compares the sheets with each other, which is what the owner is really doing when they open them all.
 
 ```
 python -m consolidator sample_data/daily_sheets --config plant_config.example.json
 ```
 
 ```
-Read 6 file(s), 23 entries.
+Read 8 file(s): 23 production entries, 17 stock register lines, 11 dispatch lines.
   skipped sheet: cnc_2026-10-14.xlsx / Instructions (no production table found)
   skipped sheet: cnc_2026-10-15.xlsx / Instructions (no production table found)
-Issues: 2 error(s), 7 warning(s), 6 note(s)
+Issues: 8 error(s), 12 warning(s), 6 note(s)
 Wrote reports/production_summary.xlsx
 Wrote reports/production_summary.html
 ```
 
-The Excel report has five tabs: **Daily Summary**, **By Shift**, **By Machine**, **Issues To Fix** (colour-coded, each pointing to file / sheet / row) and **All Entries (Clean)**. The HTML page shows the same thing for a phone.
+The Excel report has tabs for **Daily Summary**, **By Shift**, **By Machine**, **Issues To Fix** (colour-coded, each pointing to file / sheet / row), **All Entries (Clean)**, and, when those sheets are present, **Stock Summary** and **Dispatch Summary**. The HTML page shows the same thing for a phone.
 
 **[See the sample report live](https://aditya-maheshwari-xd.github.io/factory-excel-consolidator/sample_report.html)**, built from the messy sheets in `sample_data/`.
 
@@ -52,6 +52,39 @@ Real sheets don't follow a template. The reader handles:
 | Long downtime (default > 60 min) with no reason written | Warning | |
 | Machine not in the plant's machine list | Warning | |
 
+### Stock register
+
+| Check | Severity | Why it matters |
+|---|---|---|
+| Balance written doesn't follow from the line above (opening + received − issued) | Error | Flagged once, on the row where the slip happened; later rows are checked against what was written, so one mistake doesn't flag every row after it. The summary shows both the true closing and the closing as written |
+| Stock goes below zero | Error | Usually material issued before its GRN was entered. Flagged once, where it went negative |
+| Same GRN / challan number entered twice | Error | If it's the same delivery, stock is overstated |
+| Quantity that isn't a number (`approx 30`) | Error | Left out of the balance, not guessed |
+| At or below the reorder level (ROL column) | Warning | Raise a purchase order |
+| Exact copy of a line in another file | Note | Counted once |
+
+If there's no Opening column, the opening stock is worked out from the first balance written.
+
+### Dispatch register
+
+| Check | Severity | Why it matters |
+|---|---|---|
+| More sent than ordered (order no + item, all trucks together) | Error | Per-plant tolerance in the config (`dispatch.tolerance_pct`) |
+| Invoice number used for a different order, or twice for the same item | Error | One invoice is one truck for one order. One invoice covering several items of one order is fine |
+| Order not fully sent and past its due date | Warning | Shows what's pending and how many days late |
+| No POD more than 7 days after dispatch (`dispatch.pod_days`) | Warning | Without the POD the payment can't be chased |
+| Order quantity written differently on different rows | Warning | Uses the latest |
+| Dispatch with no invoice number | Warning | |
+
+"Today" for overdue and POD checks is the **latest date in the sheets**, so a set of sheets gives the same answer whenever it is checked.
+
+### Across sheets
+
+| Check | Severity | Why it matters |
+|---|---|---|
+| Dispatched item code not in the production sheets or stock register, with a guess (`BRK220` → "Did you mean BRK-220?") | Warning | Only when production sheets, or a stock register listing finished goods, are there to compare with: a raw-material register can't vouch for product codes |
+| More of an item dispatched than was made on the days the production sheets cover | Warning, or Error if the stock register's opening stock still doesn't cover it | Either a wrong entry, or stock from earlier that isn't recorded |
+
 Thresholds, machines, capacities and shifts live in a small JSON file — see [`plant_config.example.json`](plant_config.example.json). Without a config the tool still consolidates; it just can't do the capacity and missing-entry checks.
 
 ## Design decisions, and why
@@ -68,21 +101,38 @@ Thresholds, machines, capacities and shifts live in a small JSON file — see [`
 pip install -r requirements.txt
 python sample_data/generate.py          # writes messy sample sheets for a fictional plant
 python -m consolidator sample_data/daily_sheets --config plant_config.example.json --out reports
-python -m pytest -q                     # 49 tests
+python -m pytest -q                     # 81 tests
 ```
 
-The sample data (two supervisors, two days) has these problems planted on purpose: a sheet forwarded twice, an extra-zero typo later fixed in a `_revised` file, rejected > produced, `approx 750`, 120 min downtime with no reason, one machine/shift never filled in, and a shift with 10.7% rejection. The end-to-end test checks every one of them is caught and that totals aren't inflated.
+The sample data has these problems planted on purpose. **Production** (two supervisors, two days): a sheet forwarded twice, an extra-zero typo later fixed in a `_revised` file, rejected > produced, `approx 750`, 120 min downtime with no reason, one machine/shift never filled in, and a shift with 10.7% rejection. **Stock register:** a balance carried forward 100 kg too high, nuts issued before their receipt was entered, a GRN entered twice, `approx 30`, an item below its reorder level. **Dispatch register:** an invoice number reused, 1,100 sent against an order of 1,000, an overdue order, a truck with no POD after 10 days, an item code typed without its hyphen, and more of one item sent than was made. The end-to-end test checks every one of them is caught and that totals aren't inflated.
 
 Exit code is `2` when there are errors, so this can run on a schedule and alert someone.
+
+### In the browser: upload page
+
+```bash
+uvicorn consolidator.web:app --reload   # open http://127.0.0.1:8000
+```
+
+Upload the day's sheets (production, stock and dispatch together) and the page shows the same summary, with a link to download the Excel report. It runs exactly the same checks as the command line; `web.py` only handles the upload. A **Run on the sample sheets** button and download links for the eight sample sheets let anyone try it without their own data: download one, change a number in Excel, upload it again and see what gets flagged.
+
+Uploads are limited to 20 files of 5 MB each (.xlsx or .xlsm) and are deleted after an hour. File names are kept, because the checks read words like `revised` and `(1)` from them.
+
+### Deploy (free)
+
+`render.yaml` sets the upload page up as a free web service on [Render](https://render.com): in the Render dashboard choose **New → Blueprint** and pick this repo. Free services sleep after 15 minutes without visitors and take about a minute to wake up.
 
 ## Layout
 
 ```
 consolidator/
-  normalize.py   reading sheets: header detection, aliases, dates, shifts, quantities
-  checks.py      row checks, duplicates/revisions/conflicts, missing entries
+  normalize.py   reading production sheets: header detection, aliases, dates, shifts, quantities
+  checks.py      production checks: row checks, duplicates/revisions/conflicts, missing entries
+  registers.py   recognising and reading stock and dispatch registers
+  register_checks.py   stock, dispatch and cross-sheet checks
   report.py      Excel + HTML summary
   __main__.py    command line
+  web.py         upload page (FastAPI)
 sample_data/generate.py   messy sample sheets
 tests/                    unit + end-to-end tests
 ```

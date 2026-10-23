@@ -1,9 +1,15 @@
 """Generate realistic, deliberately messy sample sheets for a fictional plant.
 
-Two supervisors, two days, two different sheet styles, and the kind of
-mistakes that really happen: a typo with an extra zero, a sheet re-sent on
+Production: two supervisors, two days, two different sheet styles, and the kind
+of mistakes that really happen: a typo with an extra zero, a sheet re-sent on
 WhatsApp, a "revised" file that disagrees with the original, a machine that
 nobody filled in, quantities typed as text.
+
+Stores and dispatch: the store keeper's stock register and the dispatch
+register for the same days, with their own typical slips: a balance carried
+forward wrongly, stock issued before its receipt was entered, a GRN entered
+twice, an invoice number reused, an over-dispatch, a missing POD, and an item
+code typed without its hyphen.
 
 Run:  python sample_data/generate.py
 """
@@ -49,6 +55,85 @@ def cnc_shop(day: datetime, shifts: dict[str, list[list]], filename: str) -> Non
                    "Downtime", "Comments"])
         for r in rows:
             ws.append(r)
+    wb.save(OUT / filename)
+
+
+def stock_register(filename: str) -> None:
+    """Store keeper: one running register for all raw materials, a balance after every line,
+    the opening stock only on each item's first line, and a reorder level (ROL) column."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Stock Register"
+    ws.append(["SHREE BALAJI AUTO COMPONENTS (fictional) - STORES STOCK REGISTER, OCT 2026"])
+    ws.append([])
+    ws.append(["Date", "Item Code", "Item Description", "UOM", "Opening", "Received", "Issued",
+               "Balance", "GRN / Challan No", "ROL", "Remarks"])
+    rows = [
+        # CRCA sheet: the 15/10 balance is carried forward 100 kg too high (2330, should be 2230)
+        ["13/10/2026", "CRCA-12", "CRCA sheet 1.2 mm", "kg", 1200, None, None, 1200, None, 500, None],
+        ["14/10/2026", "CRCA-12", "CRCA sheet 1.2 mm", "kg", None, None, 450, 750, None, None, "Press shop"],
+        ["14/10/2026", "CRCA-12", "CRCA sheet 1.2 mm", "kg", None, 2000, None, 2750, "GRN-1041", None, None],
+        ["15/10/2026", "CRCA-12", "CRCA sheet 1.2 mm", "kg", None, None, 520, 2330, None, None, "Press shop"],
+        ["15/10/2026", "CRCA-12", "CRCA sheet 1.2 mm", "kg", None, None, 300, 2030, None, None, "Press shop"],
+        # MS rod: runs below its reorder level
+        ["13/10/2026", "MSROD-8", "MS round rod 8 mm", "kg", 150, None, None, 150, None, 100, None],
+        ["14/10/2026", "MSROD-8", "MS round rod 8 mm", "kg", None, None, 60, 90, None, None, "CNC"],
+        ["15/10/2026", "MSROD-8", "MS round rod 8 mm", "kg", None, None, 40, 50, None, None, "CNC"],
+        # Nuts: issued on 14/10 before the receipt was entered (on 15/10), balance left blank
+        ["13/10/2026", "NUT-M8", "Hex nut M8", "nos", 1500, None, None, 1500, None, 2000, None],
+        ["14/10/2026", "NUT-M8", "Hex nut M8", "nos", None, None, 1800, None, None, None, "Assembly"],
+        ["15/10/2026", "NUT-M8", "Hex nut M8", "nos", None, "5,000", None, 4700, "GRN-1043", None, None],
+        # Powder coat: the same GRN entered again the next day
+        ["13/10/2026", "PWD-BLK", "Powder coat, black", "kg", 60, None, None, 60, None, 25, None],
+        ["14/10/2026", "PWD-BLK", "Powder coat, black", "kg", None, 40, None, 100, "GRN-1044", None, None],
+        ["15/10/2026", "PWD-BLK", "Powder coat, black", "kg", None, 40, None, 140, "GRN-1044", None, None],
+        ["15/10/2026", "PWD-BLK", "Powder coat, black", "kg", None, None, 30, 110, None, None, "Paint shop"],
+        # Boxes: a quantity written as text
+        ["13/10/2026", "BOX-50", "Corrugated box (50 pcs)", "nos", 120, None, None, 120, None, 40, None],
+        ["15/10/2026", "BOX-50", "Corrugated box (50 pcs)", "nos", None, None, "approx 30", None, None, None,
+         "Dispatch"],
+    ]
+    for r in rows:
+        ws.append(r)
+    wb.save(OUT / filename)
+
+
+def dispatch_register(filename: str) -> None:
+    """Dispatch in-charge: one line per invoice (truck), the order quantity repeated on each line,
+    POD written as a date or 'Yes' when it comes back."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Dispatch Register"
+    ws.append(["SHREE BALAJI AUTO COMPONENTS (fictional) - DISPATCH REGISTER"])
+    ws.append([])
+    ws.append(["Date", "Invoice No", "Customer", "PO No", "Item Code", "Order Qty", "Dispatch Qty",
+               "Due Date", "Vehicle No", "POD", "Remarks"])
+    rows = [
+        ["05/10/2026", "INV-0388", "Hosur Precision", "HP/7781", "SFT-118", 1500, 1500, "08/10/2026",
+         "KA 51 MN 2290", None, None],                                            # POD never came back
+        ["08/10/2026", "INV-0395", "Pune Auto Assemblies", "PAA-4471", "HNG-310", 2000, 1200, "12/10/2026",
+         "MH 12 QT 9081", "Yes", None],
+        ["10/10/2026", "INV-0401", "Sundaram Motors", "SM/1187", "BRK-220", 5000, 3000, "20/10/2026",
+         "TN 09 BX 4421", "12/10/2026", None],
+        ["13/10/2026", "INV-0409", "Rajkot Engineering Works", "REW/88", "BRK-221", 2500, 1000, "11/10/2026",
+         "GJ 03 KL 7710", None, "Balance pending"],                              # overdue
+        ["14/10/2026", "INV-0412", "Sundaram Motors", "SM/1187", "BRK-220", 5000, 2000, "20/10/2026",
+         "TN 09 BX 4421", None, None],
+        ["14/10/2026", "INV-0413", "Pune Auto Assemblies", "PAA-4471", "HNG-310", 2000, 800, "12/10/2026",
+         "MH 12 QT 9081", None, None],
+        ["14/10/2026", "INV-0414", "Coimbatore Pumps", "CP-0091", "BSH-044", 1000, 600, "18/10/2026",
+         "TN 37 CK 1182", None, None],
+        ["15/10/2026", "INV-0414", "Hosur Precision", "HP/7790", "SFT-119", 300, 300, "16/10/2026",
+         "KA 51 MN 2290", None, "Invoice no. reused"],                            # same invoice, other order
+        ["15/10/2026", "INV-0418", "Hosur Precision", "HP/7795", "HNG-310", 1000, 1000, "20/10/2026",
+         "KA 51 MN 2290", None, None],                                            # more HNG-310 than made
+        ["15/10/2026", "INV-0419", "Coimbatore Pumps", "CP-0091", "BSH-044", 1000, 500, "18/10/2026",
+         "TN 37 CK 1182", None, None],                                            # 1100 against 1000
+        ["15/10/2026", "INV-0420", "Pune Auto Assemblies", "PAA-4520", "BRK220", 1200, 400, "25/10/2026",
+         "MH 12 QT 9081", None, None],                                            # code typed without hyphen
+    ]
+    for r in rows:
+        ws.append(r)
     wb.save(OUT / filename)
 
 
@@ -112,6 +197,9 @@ def main() -> None:
             ["M06", "BSH-044", "Ganesh", 600, 560, 5, 30, None],
         ],
     }, "cnc_2026-10-15.xlsx")
+
+    stock_register("stores_stock_register_oct-2026.xlsx")
+    dispatch_register("dispatch_register_oct-2026.xlsx")
 
     print(f"Wrote sample sheets to {OUT}")
 

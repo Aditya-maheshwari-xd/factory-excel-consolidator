@@ -198,6 +198,7 @@ class ReadResult:
     issues: list[RawIssue] = field(default_factory=list)
     sheets_read: int = 0
     sheets_skipped: list[str] = field(default_factory=list)
+    sheet_names_read: list[str] = field(default_factory=list)   # production sheets, by name
 
 
 def find_header_row(df: pd.DataFrame, scan_rows: int = 15) -> tuple[int | None, dict[int, str]]:
@@ -254,6 +255,7 @@ def read_workbook(path: str | Path) -> ReadResult:
             result.sheets_skipped.append(f"{path.name} / {sheet_name} (no production table found)")
             continue
         result.sheets_read += 1
+        result.sheet_names_read.append(str(sheet_name))
 
         banner_date = _date_from_banner(df, header_row)
         sheet_shift = normalize_shift(re.sub(r"(?i)shift", "", str(sheet_name)).strip()) \

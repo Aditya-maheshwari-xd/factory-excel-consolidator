@@ -29,6 +29,8 @@ class Issue:
     file: str | None = None
     sheet: str | None = None
     row: int | None = None
+    area: str = "Production"        # Production, Stock, Dispatch or Cross-check
+    item: str | None = None
 
     def where(self) -> str:
         if not self.file:

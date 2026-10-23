@@ -1,4 +1,6 @@
-"""Command line: python -m consolidator <folder> [--config plant.json] [--out reports/]"""
+"""Command line: python -m consolidator <folder> [--config plant.json] [--out reports/]
+
+Reads production sheets, stock registers and dispatch registers from the folder."""
 
 from __future__ import annotations
 
@@ -10,7 +12,8 @@ from . import consolidate, load_config, write_reports
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Merge daily production Excel sheets into one checked summary.")
+    p = argparse.ArgumentParser(
+        description="Merge daily production, stock and dispatch Excel sheets into one checked summary.")
     p.add_argument("folder", help="Folder containing the day's .xlsx files")
     p.add_argument("--config", help="Plant config JSON (machines, shifts, thresholds)")
     p.add_argument("--out", default="reports", help="Where to write the summary (default: reports/)")
@@ -24,7 +27,8 @@ def main(argv: list[str] | None = None) -> int:
 
     xlsx, page = write_reports(result, args.out, config.get("plant_name", "Plant"))
     counts = Counter(i.severity for i in result.issues)
-    print(f"Read {len(result.files_read)} file(s), {len(result.rows)} entries.")
+    print(f"Read {len(result.files_read)} file(s): {len(result.rows)} production entries, "
+          f"{len(result.stock_rows)} stock register lines, {len(result.dispatch_rows)} dispatch lines.")
     for s in result.sheets_skipped:
         print(f"  skipped sheet: {s}")
     print(f"Issues: {counts['error']} error(s), {counts['warning']} warning(s), {counts['info']} note(s)")
